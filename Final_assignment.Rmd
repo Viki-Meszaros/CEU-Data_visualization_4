@@ -1,0 +1,348 @@
+---
+title: "Product analysis"
+subtitle: ""
+author: "Viktória Mészáros"
+date: "14/05/2021"
+output:
+  prettydoc::html_pretty:
+    theme: cayman
+    highlight: github
+---
+
+
+```{r setup, include=F}
+## load packages needed
+library(tidyverse)
+library(kableExtra)
+library(data.table)
+
+reg <- data.table(read.csv("https://raw.githubusercontent.com/Viki-Meszaros/CEU-Product_analytics/main/Data/registrations.csv", sep = ";"))
+act <- data.table(read.csv("https://raw.githubusercontent.com/Viki-Meszaros/CEU-Product_analytics/main/Data/activity.csv", sep = ";"))
+
+```
+
+## Project summary
+In this project we are going to go through a little product analytics. We are going to analyze a data set about an actual SaaS product. I am going to consider three different stages of a product life cycle; namely **acquisition**, **activity** and **retention**.  
+
+## Acquisition
+
+**Basic task**
+
+*Plot the number of registrations in each month. Make some comments on the trends and any lower periods.*
+
+Let's start our analyses with looking at the trends in monthly registrations. The peaks are in September, October and November of the firs year and then March, April and May in the second year. It would be interesting to look at the reasons behind this. Were there any marketing campaigns or price changes that would have effected the registration numbers. If we find we did nothing extra I could think of that in autumn after the summer months where a lot of employees are on vacation when they return in autumn companies can work more focused. Also as more employees return companies may organize training for them and this can lead to increased number of registered users. In spring I could think of something similar. After the tiring winter months people get new energy and try out new things. These are only some really basic ideas as I have no information what the exact product is that would be impossible to make proper conclusions. Overall we can see from this chart that the most successful months for customer acquisition were in autumn (October and November) and in spring (March). 
+
+```{r, echo=F, message=F, warning=F, out.width="80%", fig.align='center'}
+reg %>% 
+  group_by(registration_month) %>% 
+  summarise(num_regs = n()) %>% 
+  ggplot(aes(registration_month, num_regs)) +
+  geom_col(fill = "deeppink4", color = "white") +
+  geom_vline(xintercept = 12.5, linetype = "dashed") +
+  labs(title = "Number of registrations in each month",
+       subtitle = "Month 1 and Month 13 are both January in consecutive years",
+       x = "Month",
+       y = "Number of registrations") +
+  scale_x_continuous(breaks = seq(1, 21, by = 1)) +
+  theme_minimal()
+```
+
+**Extra tasks**
+
+*Calculate year-over-year growth of registrations. What would you project for Month 22?*
+
+In the beginning of the year we can see significant growth in registrations. This may be due to that the product was introduced last year so we could not reach a huge customer base but this year the number increased a lot as we can get to more people through are customer networks, word-of-mouth or higher marketing spending. In May,  June and more severely in August and September the YoY growth was lower, it even turned negative in September. Thi may be due to that last September was highy successful and the number are just normalizing, the worse case is if there is some problems that leads to lower customer acquisition compared to last year. Just based on looking at the graph and the number I would project in Month 22 which is October that we will see a year over year growth of around plus 5%. I think is won't be negative as it only happened in September but the whole second year was better compared to the previous one, but I also consider it to be low as the trends show a slow down in growth in the past 2 months. 
+
+```{r, echo=F, message=F, warning=F, out.width="70%", fig.align='center'}
+tdf <- reg %>% 
+  group_by(registration_month) %>% 
+  summarise(num_regs = n()) 
+
+for (i in 1:nrow(tdf)) {
+  ifelse(i<13,
+         tdf$yoy_growth[i] <- NA,
+         tdf$yoy_growth[i] <- (tdf$num_regs[i]/tdf$num_regs[i-12]-1)*100)
+}
+
+tdf <-data.table(tdf)
+
+tdf[13:21, .("month" = registration_month, "growth" = paste(round(yoy_growth, 2), "%"))] %>% 
+  kbl() %>% 
+  kable_classic(full_width = F, html_font = "Cambria")
+
+tdf[13:21] %>% 
+  ggplot(aes(registration_month, yoy_growth)) +
+  geom_col(fill = "cyan4", color = "white", width = 0.7) +
+  labs(title = "Yera-over-year growth",
+       x = "Month",
+       y = "Growth (%)") +
+  scale_x_continuous(breaks = seq(13, 21, by = 1), labels = c("January", "February", "March", "April", "May", "June", "July", "August", "September")) +
+  theme_minimal()
+  
+```
+
+*Do you see any regional difference in registration trends? Which geography is likely to drive future growth in registrations?*
+
+In this charts I am going to look at regional differences. You can clearly see that ROW region generates most of the registrations. America and EMEA regions are producing similar numbers. When looking at trends, EMEA and America moves together in most of the months. We can also see similar patterns of ROW as well but the magnitude of changes so variability is much higher there. I think ROW region is most likely to drive future growth in registration as that seems to be the biggest region so there is a lot of potential for us there. I would also advice to focus more on America as in my opinion it should have higher numbers compared to EMEA but as yue see we are not there yet.
+
+```{r, echo=F, message=F, warning=F, out.width="80%", fig.align='center'}
+reg %>% 
+  group_by(registration_month, region) %>% 
+  summarise(num_regs = n()) %>% 
+  ggplot(aes(registration_month, num_regs, color = region)) +
+  geom_line(size = 0.8) +
+  scale_color_manual(values = c("deeppink4", "cyan4", "orange3")) +
+  labs( title ="Regional registration trends",
+        x = "Month",
+        y = "Number of registrations") +
+  scale_x_continuous(breaks = seq(1, 21, by = 1)) +
+  theme_minimal()
+
+reg %>% 
+  group_by(registration_month, region) %>% 
+  summarise(num_regs = n()) %>% 
+  ggplot(aes(registration_month, num_regs, fill = region)) +
+  geom_col(color = "white", show.legend = F) +
+  facet_wrap(~region) +
+  scale_fill_manual(values = c("deeppink4", "cyan4", "orange3")) +
+  labs(title = "Number of registrations in each month by region",
+       subtitle = "Month 1 and Month 13 are both January in consecutive years",
+       x = "Month",
+       y = "Number of registrations") +
+  scale_x_continuous(breaks = seq(1, 21, by = 2)) +
+  theme_minimal()
+
+```
+
+From these charts and data we already have a solid basis of knowledge to do more in depth product analytics. We should look if we can find the underlying factors that effected the number of registrations. I would look at marketing and pricing at first to see if that affected the registrations. After this I would look at changes in the product it self and even dig deeper if I did not found any reasons until now. 
+
+## Activity
+
+**Basic task**
+
+*Plot the number of active users in each month. Make some comments on the trends and any lower periods.*
+
+After analyzing registration let's continue with active users per month. The trend seems to be similar to what we saw for registrations. We had the highest number of active users in autumn and spring. The numbers decreased in December, January and February. This can be due to holidays and probably less people working that affected our numbers as well. We see a drop in the summer as well the reason behind this can also be holidays. The trends are looking very alike to registration data. This is important to monitor to a deeper extent as it may be that we do not really have a significant retained user base and the active user numbers only grow due to new registrations. This is not a sustainable model.
+
+```{r, echo=F, message=F, warning=F, out.width="80%", fig.align='center'}
+act %>% 
+  group_by(activity_month) %>% 
+  summarise(num_active_users = n()) %>% 
+  ggplot(aes(activity_month, num_active_users)) +
+  geom_col(fill = "orange3", color = "white") +
+  geom_vline(xintercept = 12.5, linetype = "dashed") +
+  labs(title = "Number of active users in each month",
+       subtitle = "Month 1 and Month 13 are both January in consecutive years",
+       x = "Month",
+       y = "Number of active users") +
+  scale_x_continuous(breaks = seq(1, 21, by = 1)) +
+  theme_minimal()
+
+```
+
+**Extra tasks**
+
+*Plot the percentage of America among active users in each month.*
+
+The number of American users among active users follow the same pattern as the total number of active users. From the chart below it becomes visible that America is only responsible for around 1/4th or 1/5th of are overall users. The changes in active user numbers varies less compared to the total numbers.
+
+```{r, echo=F, message=F, warning=F, out.width="80%", fig.align='center'}
+act$region <- factor(act$region, levels = c("America", "EMEA", "ROW"))
+
+act %>% 
+  group_by(activity_month, region) %>% 
+  summarise(num_active_users = n()) %>% 
+  arrange(activity_month, desc(region)) %>% 
+  ggplot(aes(activity_month, num_active_users, 
+             fill = factor(region, levels = c("ROW", "EMEA", "America")))) +
+  geom_col() +
+  labs(title = "Percentage of America among active users in each month",
+       x = "Month",
+       y = "Number of active users",
+       fill = "Region") +
+  scale_x_continuous(breaks = seq(1, 21, by = 1)) +
+  scale_fill_manual(values = c("grey70", "grey70", "deeppink4")) +
+  theme_minimal()
+```
+
+The percentage of active users from America changes mostly between 15% and 30%. In the beginning of the first year the percentage is higher and then it decreases as other region grow importance. This is fine as the product is probably becoming used in more and more countries. On the other hand it may be worth to look if the decline is really only because the number of active users increase in other regions, and if it is not, but only the interest of American customers shrink, we would need to find out why and deal with this problem.
+
+```{r, echo=F, message=F, warning=F, out.width="80%", fig.align='center'}
+
+tdf <- merge((act[, .(num_act_users = .N), by = activity_month]), 
+             (act[region == "America", .(num_American_users = .N), by = activity_month]) , by = "activity_month") 
+
+tdf$percent_America <- round((tdf$num_American_users/tdf$num_act_users)*100, 2)
+
+tdf[, .("Month" = activity_month, "Percent of America" = paste(percent_America, "%"))] %>% 
+  kbl() %>% 
+  kable_classic(full_width = F, html_font = "Cambria")
+
+tdf %>% 
+  ggplot(aes(activity_month, percent_America)) +
+  geom_col(fill = "cyan4") +
+  labs(title = "",
+       x = "Month",
+       y = "Percent of America (%)") +
+  scale_x_continuous(breaks = seq(1, 21, by = 1)) +
+  theme_minimal()
+  
+```
+
+*Classify each active user as New, Retained, and Resurrected. Plot the number of Retained active users in each month.*
+
+
+```{r, include=F}
+act_2 <- data.table(read.csv("https://raw.githubusercontent.com/Viki-Meszaros/CEU-Product_analytics/main/Data/activity_with_flags.csv"))
+
+## for loop to assign flags to each user
+
+# for (i in 1:nrow(act)) {
+#   if (act$registration_month[i] == act$activity_month[i]) {
+#     act$user_class[i] <- "New"
+#   } else if ((act$activity_month[i]-1) %in% act[act$id == act$id[i], activity_month]){
+#     act$user_class[i] <- "Retained"
+#   } else {
+#     act$user_class[i] <- "Resurrected"
+#   }
+# }
+
+
+```
+
+As I mentioned above it is really important to understand if our active users are retained ones or they are just newly registered to the product. For this the below chart shows the number of retained users alone as also as compared to total. On th second graph it nicely seems that retained users are responsible for around 35-40% of all active users which is a quite good number.
+
+```{r, echo=F, message=F, warning=F, out.width="70%", fig.align='center'}
+act_2[user_class == "Retained"] %>% 
+  group_by(activity_month) %>% 
+  summarise(num_active_users = n()) %>% 
+  ggplot(aes(activity_month, num_active_users)) +
+  geom_col(fill = "orange3", color = "white") +
+  geom_vline(xintercept = 12.5, linetype = "dashed") +
+  labs(title = "Number of active users in each month",
+       subtitle = "Month 1 and Month 13 are both January in consecutive years",
+       x = "Month",
+       y = "Number of active users") +
+  scale_x_continuous(breaks = seq(1, 21, by = 1)) +
+  theme_minimal()
+
+act_2 %>% 
+  group_by(activity_month, user_class) %>% 
+  summarise(num_active_users = n()) %>% 
+  ggplot(aes(activity_month, num_active_users, fill = user_class)) +
+  geom_col() +
+  geom_vline(xintercept = 12.5, linetype = "dashed") +
+  labs(title = "Number of active users in each month",
+       subtitle = "Month 1 and Month 13 are both January in consecutive years",
+       x = "Month",
+       y = "Number of active users") +
+  scale_fill_manual(values = c("grey70", "grey70", "orange3")) +
+  scale_x_continuous(breaks = seq(1, 21, by = 1)) +
+  theme_minimal()
+
+## Average percent of retained users among active users
+#nrow(act_2[user_class == "Retained"])/nrow(act_2)*100
+```
+
+
+## Retention
+
+**Basic task**
+
+*Calculate what percentage of Month 1 registered users have been active in Month 2* 
+
+For calculating this I  took a subset of the activity data set of users who registered in the first month and were active in the second one and calculated the number of unique users in it, then I divided it with the number of users who registered in the first month calculated from the registrations data set.
+
+```{r}
+round(nrow(act[registration_month == 1 & activity_month == 2])/nrow(reg[registration_month == 1,])*100, 2)
+```
+
+*Calculate the same rate for users who registered in Month 13* 
+
+```{r}
+round(nrow(act[registration_month == 13 & activity_month == 14])/nrow(reg[registration_month == 13])*100, 2)
+```
+
+*What can explain the difference?*
+
+The difference is around 10% between the second month retention rates. I think this difference is due to that in the first month when the product was launched users who registered were really enthusiastic about it and they found it out really early. On the other hand one year later the users who registered were not that determined that they would use the product so only a lower percentage of them retained as probably did more of them found out that the product does not give what they really want.
+
+
+**Extra tasks**
+
+*Plot the second month retention rate over time. Do you see a big change somewhere?*
+
+We should look at the second month retention rates for all the months. We can see significant drops in summer months and also in November, December. In my opinion these changes stem from mainly holidays and that less people are active in these months as work is less intensive then. If this is not the truth we should dig deeper to understand the trends we see. Overall the average second month retention rates decrease as time passes. This is due to the difference in customers. As I already mentioned above, customers who registered when the product was launched were probably more enthusiastic about it and really waited for it or just knoew they want it. On the other hand the ones who joined later are not that determined and thus the retention of them is lower.
+
+```{r, echo=F, message=F, warning=F, out.width="70%", fig.align='center'}
+## Create data frame for with number of registered users each month
+tdf <- data.table(reg %>% 
+  group_by(registration_month) %>% 
+  summarise("num_registrations" = length(unique(id)))) 
+  
+## Calculate second month retentio rates
+for (i in 1:nrow(tdf)) {
+  tdf$second_month_retention[i] <- round(nrow(act[registration_month == i & activity_month == (i+1)])/tdf$num_registrations[i]*100, 2)
+}
+
+## Filter for month 1-20
+tdf <- tdf[registration_month < 21]
+
+
+tdf[, .("Month" = registration_month, "2nd month retention" = second_month_retention)] %>% 
+  kbl() %>% 
+  kable_classic(full_width = F, html_font = "Cambria")
+
+tdf %>% 
+  ggplot(aes(registration_month, second_month_retention)) +
+  geom_col(fill = "deeppink4") +
+  geom_smooth(method = lm, color = "black", se = F) +
+  geom_vline(xintercept = 12.5,linetype = "dashed") +
+  labs(title = "Second month retention rates",
+       x = "Month",
+       y = "Retention (%)") +
+  scale_x_continuous(breaks = seq(1, 20, by = 1)) +
+  theme_minimal()
+  
+```
+
+*Compare the Month 1 to Month 2 retention rate among users with different operating systems. Do you see any difference?*
+
+I compared retention rates in Month 1 to 5 for different operating systems. The highest retention rates were observed by Mac users and Windows users. For Linux users it varies but usually it is lower and for unknown it is the lowest in each month. This really worth a look as it may mean that the product runs well in only specific operating systems but it is uncomfortable to use in some others.
+
+```{r, echo=F, message=F, warning=F, out.width="80%", fig.align='center'}
+tdf <- data.table(act %>% 
+  group_by(registration_month, operating_system) %>% 
+  summarise("num_registrations" = length(unique(id)))) 
+  
+
+for (i in 1:nrow(tdf)) {
+  tdf$second_month_retention[i] <- round(nrow(act[registration_month == tdf$registration_month[i] & activity_month == (tdf$registration_month[i]+1) & operating_system == tdf$operating_system[i]])/tdf$num_registrations[i]*100, 2)
+}
+
+tdf <- tdf[registration_month < 21] 
+
+tdf[registration_month %in% c(1, 2, 3, 4, 5)] %>% 
+  ggplot(aes(registration_month, second_month_retention, fill = operating_system)) +
+  geom_col(position = "dodge") +
+  labs(title = "Second month retention rates",
+       x = "Month",
+       y = "Retention (%)",
+       fill = "Operating system") +
+  # scale_x_continuous(breaks = seq(1, 20, by = 1)) +
+  scale_fill_manual(values = c("cyan4", "orange2", "deeppink4", "tomato2")) +
+  theme_minimal()
+```
+
+## Summary
+
+Looking at all the data we have about this SaaS product we identified trends in registrations that are smaller in the summer and winter months most probably due to holidays and workload issues. If this is not the case we should monitor this issue and find out underlying effects. Year-over-year growth slowed down in the past 2 months we should really keep an eye on this trend. Activity of the users looks okay follows some similar trends as registrations and it is usually lower in summer and winter as well. Number of retained active users is pretty good and supports long term success of the product. Retention rates (second month) are also high. Overall we see a declining trend but this could be sue to the change in customer characteristics.
+
+*Note*: I did not know what is the actual product I am analyzing so most of my conclusions are just assumptions and opinions based on the data. To get a clear picture we would need more details about several factors effecting our numbers.
+
+
+
+
+
+
+
